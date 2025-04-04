@@ -3,7 +3,7 @@
 
 import asyncio
 import pytest
-from chuk_protocol_server.transports.tcp.tcp_server import TCPServer
+from chuk_protocol_server.servers.tcp_server import TCPServer
 from chuk_protocol_server.handlers.base_handler import BaseHandler
 
 # --- Dummy Handler for testing TCPServer ---

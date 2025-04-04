@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# chuk_protocol_server/transports/base_server.py
+# chuk_protocol_server/servers/base_server.py
 """
 Base Server Interface
 

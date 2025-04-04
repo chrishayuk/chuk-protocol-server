@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# chuk_protocol_server/transports/tcp/tcp_server.py
+# chuk_protocol_server/servers/tcp_server.py
 """
 TCP Server Module
 
@@ -12,9 +12,10 @@ from typing import Type
 
 # imports
 from chuk_protocol_server.handlers.base_handler import BaseHandler
-from chuk_protocol_server.transports.base_server import BaseServer
+from chuk_protocol_server.servers.base_server import BaseServer
 
-logger = logging.getLogger('tcp-server')
+# logger
+logger = logging.getLogger('chuk-protocol-server')
 
 class TCPServer(BaseServer):
     """

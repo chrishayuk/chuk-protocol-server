@@ -3,7 +3,7 @@
 
 import asyncio
 import pytest
-from chuk_protocol_server.transports.base_server import BaseServer
+from chuk_protocol_server.servers.base_server import BaseServer
 from chuk_protocol_server.handlers.base_handler import BaseHandler
 
 # --- Dummy reader and writer for simulating asyncio streams ---

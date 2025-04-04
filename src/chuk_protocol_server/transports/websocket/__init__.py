@@ -16,13 +16,11 @@ except ImportError:
 # Re-export classes for convenience if websockets is available
 if WEBSOCKETS_AVAILABLE:
     try:
-        from telnet_server.transports.websocket.ws_server import WebSocketServer
-        from telnet_server.transports.websocket.ws_adapter import WebSocketAdapter
-        from telnet_server.transports.websocket.ws_reader import WebSocketReader
-        from telnet_server.transports.websocket.ws_writer import WebSocketWriter
+        from chuk_protocol_server.transports.websocket.ws_adapter import WebSocketAdapter
+        from chuk_protocol_server.transports.websocket.ws_reader import WebSocketReader
+        from chuk_protocol_server.transports.websocket.ws_writer import WebSocketWriter
         
         __all__ = [
-            'WebSocketServer',
             'WebSocketAdapter',
             'WebSocketReader',
             'WebSocketWriter',

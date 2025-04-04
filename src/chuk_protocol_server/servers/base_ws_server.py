@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# chuk_protocol_server/transports/websocket/base_ws_server.py
+# chuk_protocol_server/servers/base_ws_server.py
 """
 Base WebSocket Server with Monitoring Support
 
@@ -19,7 +19,7 @@ from websockets.server import WebSocketServerProtocol
 
 # imports
 from chuk_protocol_server.handlers.base_handler import BaseHandler
-from chuk_protocol_server.transports.base_server import BaseServer
+from chuk_protocol_server.servers.base_server import BaseServer
 from chuk_protocol_server.transports.websocket.ws_session_monitor import SessionMonitor
 from chuk_protocol_server.transports.websocket.ws_monitorable_adapter import MonitorableWebSocketAdapter
 

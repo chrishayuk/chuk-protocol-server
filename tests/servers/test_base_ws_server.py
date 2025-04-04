@@ -5,7 +5,7 @@ import asyncio
 import pytest
 import ssl
 
-from chuk_protocol_server.transports.websocket.base_ws_server import BaseWebSocketServer
+from chuk_protocol_server.servers.base_ws_server import BaseWebSocketServer
 
 # --- Dummy Handler for testing ---
 class DummyHandler:
@@ -76,7 +76,7 @@ async def test_create_server(monkeypatch):
         return dummy_ws_instance
 
     monkeypatch.setattr(
-        "chuk_protocol_server.transports.websocket.base_ws_server.websockets.serve",
+        "chuk_protocol_server.servers.base_ws_server.websockets.serve",
         dummy_serve,
     )
 
@@ -108,7 +108,7 @@ async def test_start_server(monkeypatch):
         return dummy_ws_instance
 
     monkeypatch.setattr(
-        "chuk_protocol_server.transports.websocket.base_ws_server.websockets.serve",
+        "chuk_protocol_server.servers.base_ws_server.websockets.serve",
         dummy_serve,
     )
 
@@ -174,7 +174,7 @@ def test_monitoring_enabled(monkeypatch):
             self.path = path
 
     # Monkeypatch SessionMonitor in the module.
-    import chuk_protocol_server.transports.websocket.base_ws_server as ws_module
+    import chuk_protocol_server.servers.base_ws_server as ws_module
     original_SessionMonitor = ws_module.SessionMonitor
     ws_module.SessionMonitor = DummySessionMonitor
 

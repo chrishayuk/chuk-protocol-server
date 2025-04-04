@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# telnet_server/transports/websocket/ws_server_plain.py
+# chuk_protocol_server/servers/ws_server_plain.py
 """
 Plain WebSocket Server with Session Monitoring
 
@@ -18,7 +18,7 @@ from websockets.exceptions import ConnectionClosed
 
 # imports
 from chuk_protocol_server.handlers.base_handler import BaseHandler
-from chuk_protocol_server.transports.websocket.base_ws_server import BaseWebSocketServer
+from chuk_protocol_server.servers.base_ws_server import BaseWebSocketServer
 from chuk_protocol_server.transports.websocket.ws_adapter import WebSocketAdapter
 from chuk_protocol_server.transports.websocket.ws_monitorable_adapter import MonitorableWebSocketAdapter
 
@@ -113,7 +113,7 @@ class PlainWebSocketServer(BaseWebSocketServer):
         # Create appropriate adapter (monitorable if monitoring is enabled)
         if self.enable_monitoring and self.session_monitor:
             # Import the interceptor here to avoid circular imports
-            from telnet_server.transports.websocket.ws_interceptor import WebSocketInterceptor
+            from chuk_protocol_server.transports.websocket.ws_interceptor import WebSocketInterceptor
             
             # Generate session ID
             session_id = str(uuid.uuid4())
