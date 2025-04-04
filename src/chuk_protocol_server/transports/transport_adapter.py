@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# telnet_server/transports/transport_adapter.py
+# chuk_protocol_server/transports/transport_adapter.py
 """
 Base Transport Adapter Interface
 
@@ -12,10 +12,10 @@ import logging
 from typing import Any, Dict, Optional, Tuple, Type
 
 # Import base handler
-from telnet_server.handlers.base_handler import BaseHandler
+from chuk_protocol_server.handlers.base_handler import BaseHandler
 
-# Configure logging
-logger = logging.getLogger('transport-adapter')
+# logger
+logger = logging.getLogger('chuk-protocol-server')
 
 class StreamReaderAdapter:
     """
