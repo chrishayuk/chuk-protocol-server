@@ -10,7 +10,7 @@ import logging
 import uuid
 from typing import Optional, Type
 
-# websockets
+# websockets
 from websockets.server import WebSocketServerProtocol
 
 # imports
@@ -21,8 +21,7 @@ from chuk_protocol_server.transports.websocket.ws_writer import WebSocketWriter
 # Create a monitorable reader instead of the standard one
 from chuk_protocol_server.transports.websocket.ws_monitorable_reader import MonitorableWebSocketReader
 
-
-# logger
+# logger
 logger = logging.getLogger('chuk-protocol-server')
 
 
@@ -66,7 +65,7 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
         
         # Custom welcome message that can be passed from the server
         self.welcome_message = None
-    
+
     async def handle_client(self) -> None:
         """
         Handle a client connection with monitoring.
@@ -94,7 +93,7 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
             # Create the handler
             self.handler = self.handler_class(self.reader, self.writer)
             
-            # If a server is set, also attach it to the server
+            # If a server is set, also attach it to the handler
             if self.server:
                 self.handler.server = self.server
             
@@ -123,9 +122,7 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
         """
         # Broadcast the outgoing message if monitoring is enabled
         if self.monitor and self.is_monitored:
-            # Log the message being broadcast for debugging
             logger.debug(f"Broadcasting server message: {repr(message)}")
-            
             await self.monitor.broadcast_session_event(
                 self.session_id, 
                 'server_message', 
@@ -142,7 +139,6 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
             except Exception as e:
                 logger.error(f"Error sending message to WebSocket client: {e}")
                 
-    # Override the writer's write method to capture all raw writes
     async def write(self, data: bytes) -> None:
         """
         Write data directly to the WebSocket.
@@ -152,12 +148,10 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
         Args:
             data: The data to write
         """
-        # Broadcast the raw data if monitoring is enabled
         if self.monitor and self.is_monitored:
             try:
-                # Try to decode as text for monitoring
                 text = data.decode('utf-8', errors='replace')
-                if text.strip():  # Only if not empty
+                if text.strip():
                     await self.monitor.broadcast_session_event(
                         self.session_id,
                         'server_message',
@@ -166,5 +160,10 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
             except Exception as e:
                 logger.error(f"Error broadcasting raw write data: {e}")
         
-        # Forward to the original writer
         await self.writer.write(data)
+    
+    def __getattr__(self, name):
+        """
+        Forward attribute lookups to the underlying WebSocket.
+        """
+        return getattr(self.websocket, name)
