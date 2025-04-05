@@ -16,7 +16,7 @@ import websockets
 from websockets.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 
-from urllib.parse import urlparse  # <--- for ignoring query parts
+from urllib.parse import urlparse
 
 from chuk_protocol_server.handlers.base_handler import BaseHandler
 from chuk_protocol_server.transports.websocket.ws_adapter import WebSocketAdapter
@@ -35,7 +35,7 @@ class WSTelnetServer(BaseWebSocketServer):
         host: str = '0.0.0.0',
         port: int = 8026,
         handler_class: Type[BaseHandler] = None,
-        path: str = '/ws_telnet',
+        path: Optional[str] = '/ws_telnet',  # if None, accept all paths
         ping_interval: int = 30,
         ping_timeout: int = 10,
         allow_origins: Optional[List[str]] = None,
@@ -51,7 +51,7 @@ class WSTelnetServer(BaseWebSocketServer):
             host: Host address to bind to.
             port: Port number to listen on.
             handler_class: The handler class to handle Telnet negotiation and data.
-            path: The WebSocket path (default /ws_telnet).
+            path: The WebSocket path (default /ws_telnet). If None, skip path checks.
             ping_interval: Interval in seconds for WebSocket pings.
             ping_timeout: Timeout in seconds for WebSocket pings.
             allow_origins: List of allowed origins for CORS checks (default: ['*']).
@@ -72,6 +72,7 @@ class WSTelnetServer(BaseWebSocketServer):
             enable_monitoring=enable_monitoring,
             monitor_path=monitor_path
         )
+        # If path is None, we'll accept connections on any path
         self.path = path
         self.transport = "ws_telnet"
 
@@ -99,24 +100,27 @@ class WSTelnetServer(BaseWebSocketServer):
             await websocket.close(code=1008, reason="Server at capacity")
             return
             
-        # Validate the WebSocket path (ignore query portion)
-        try:
-            raw_path = websocket.request.path
-        except AttributeError:
-            logger.error("WS Telnet: websocket.request.path not available")
-            await websocket.close(code=1011, reason="Internal server error")
-            return
+        # If self.path is not None, we enforce path checking (ignoring query)
+        if self.path is not None:
+            try:
+                raw_path = websocket.request.path
+            except AttributeError:
+                logger.error("WS Telnet: websocket.request.path not available")
+                await websocket.close(code=1011, reason="Internal server error")
+                return
 
-        # Parse out any query params so we only compare the path portion
-        parsed_path = urlparse(raw_path)
-        actual_path = parsed_path.path
-        expected_path = self.path if self.path.startswith("/") else f"/{self.path}"
+            parsed_path = urlparse(raw_path)
+            actual_path = parsed_path.path
+            expected_path = self.path if self.path.startswith("/") else f"/{self.path}"
 
-        logger.debug(f"WS Telnet: Received path='{raw_path}', actual_path='{actual_path}', expected='{expected_path}'")
-        if actual_path != expected_path:
-            logger.warning(f"WS Telnet: Rejected connection to invalid path: '{raw_path}'")
-            await websocket.close(code=1003, reason=f"Endpoint {raw_path} not found")
-            return
+            logger.debug(f"WS Telnet: Received path='{raw_path}', actual_path='{actual_path}', expected='{expected_path}'")
+            if actual_path != expected_path:
+                logger.warning(f"WS Telnet: Rejected connection to invalid path: '{raw_path}'")
+                await websocket.close(code=1003, reason=f"Endpoint {raw_path} not found")
+                return
+        else:
+            # path=None => accept all paths
+            logger.debug("WS Telnet: No path specified => accepting any path")
 
         # Optional CORS check
         try:

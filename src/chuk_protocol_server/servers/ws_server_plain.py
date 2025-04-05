@@ -15,7 +15,7 @@ import websockets
 from websockets.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 
-from urllib.parse import urlparse  # <--- for ignoring query parts
+from urllib.parse import urlparse
 
 from chuk_protocol_server.handlers.base_handler import BaseHandler
 from chuk_protocol_server.servers.base_ws_server import BaseWebSocketServer
@@ -36,7 +36,7 @@ class PlainWebSocketServer(BaseWebSocketServer):
         host: str = '0.0.0.0',
         port: int = 8025,
         handler_class: Type[BaseHandler] = None,
-        path: str = '/ws',
+        path: Optional[str] = '/ws',  # can be None to accept any path
         ping_interval: int = 30,
         ping_timeout: int = 10,
         allow_origins: Optional[List[str]] = None,
@@ -57,6 +57,7 @@ class PlainWebSocketServer(BaseWebSocketServer):
             enable_monitoring=enable_monitoring,
             monitor_path=monitor_path
         )
+        # If path is None, we skip path-check altogether
         self.path = path
         self.transport = "websocket"
 
@@ -81,22 +82,27 @@ class PlainWebSocketServer(BaseWebSocketServer):
             await websocket.close(code=1008, reason="Server at capacity")
             return
             
-        # Validate request path (ignore query portion)
-        try:
-            raw_path = websocket.request.path
-        except AttributeError:
-            logger.error("Plain WS: websocket.request.path not available")
-            await websocket.close(code=1011, reason="Internal server error")
-            return
+        # If self.path is None, skip path checking entirely
+        if self.path is not None:
+            # Validate request path (ignore query portion)
+            try:
+                raw_path = websocket.request.path
+            except AttributeError:
+                logger.error("Plain WS: websocket.request.path not available")
+                await websocket.close(code=1011, reason="Internal server error")
+                return
 
-        parsed_path = urlparse(raw_path)
-        actual_path = parsed_path.path or "/"
-        expected_path = self.path if self.path.startswith("/") else f"/{self.path}"
-        logger.debug(f"Plain WS: raw_path='{raw_path}', actual_path='{actual_path}', expected='{expected_path}'")
-        if actual_path != expected_path:
-            logger.warning(f"Plain WS: Rejected connection: invalid path '{raw_path}'")
-            await websocket.close(code=1003, reason=f"Invalid path {raw_path}")
-            return
+            parsed_path = urlparse(raw_path)
+            actual_path = parsed_path.path or "/"
+            expected_path = self.path if self.path.startswith("/") else f"/{self.path}"
+            logger.debug(f"Plain WS: raw_path='{raw_path}', actual_path='{actual_path}', expected='{expected_path}'")
+            if actual_path != expected_path:
+                logger.warning(f"Plain WS: Rejected connection: invalid path '{raw_path}'")
+                await websocket.close(code=1003, reason=f"Invalid path {raw_path}")
+                return
+        else:
+            # path=None => We do NOT reject based on path
+            logger.debug("Plain WS: path is None => accepting any path")
 
         # Optional CORS check
         try:
