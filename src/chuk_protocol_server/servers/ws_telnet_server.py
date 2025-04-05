@@ -76,10 +76,9 @@ class WSTelnetServer(BaseWebSocketServer):
         self.path = path
         self.transport = "ws_telnet"
 
-    async def _connection_handler(self, websocket: WebSocketServerProtocol):
+    async def _connection_handler(self, websocket: WebSocketServerProtocol) -> None:
         """
         Handle an incoming WebSocket connection for Telnet negotiation.
-        
         This checks the requested path, optionally performs CORS checks,
         and then uses a WebSocketAdapter to invoke the Telnet handler logic.
         """
@@ -92,7 +91,7 @@ class WSTelnetServer(BaseWebSocketServer):
                     await self.session_monitor.handle_viewer_connection(websocket)
                     return
             except AttributeError:
-                logger.error("Cannot access websocket.request.path")
+                logger.error("WS Telnet: websocket.request.path not available")
         
         # Reject connection if we're at max connections
         if self.max_connections and len(self.active_connections) >= self.max_connections:
@@ -115,7 +114,7 @@ class WSTelnetServer(BaseWebSocketServer):
             logger.debug(f"WS Telnet: raw_path='{raw_path}', actual_path='{actual_path}', expected prefix='{expected_path}'")
             if not actual_path.startswith(expected_path):
                 logger.warning(f"WS Telnet: Rejected connection: path '{raw_path}' does not start with expected prefix '{expected_path}'")
-                await websocket.close(code=1003, reason=f"Invalid path {raw_path}")
+                await websocket.close(code=1003, reason=f"Endpoint {raw_path} not found")
                 return
             # Save the full path for later use by the handler.
             websocket.full_path = raw_path

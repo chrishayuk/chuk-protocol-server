@@ -65,12 +65,15 @@ class WebSocketAdapter(BaseTransportAdapter):
         # Create the handler
         self.handler = self.handler_class(self.reader, self.writer)
         
-        # If a server is set, also attach it to the server
+        # If a server is set, also attach it to the handler
         if self.server:
             self.handler.server = self.server
         
         # IMPORTANT: Set the handler's mode to the adapter's mode
         self.handler.mode = self.mode
+        
+        # **Fix:** Pass the websocket object to the handler
+        self.handler.websocket = self.websocket
         
         # Pass welcome message if available and the handler supports it
         if self.welcome_message and hasattr(self.handler, 'welcome_message'):
