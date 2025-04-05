@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuk-protocol-server"
-version = "0.1.2"
+version = "0.1.3"
 description = "A production ready protocol library for tcp, websocket and telnet servers"
 readme = "README.md"
 authors = [
@@ -23,8 +23,7 @@ dependencies = [
 package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
-# Use find-packages with correct syntax
-where = ["."]
+where = ["src"]  # Change from "." to "src"
 include = ["chuk_protocol_server*"]
 
 [dependency-groups]
