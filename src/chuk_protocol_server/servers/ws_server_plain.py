@@ -4,18 +4,17 @@
 Plain WebSocket Server with Session Monitoring
 
 Accepts WebSocket connections as plain text, skipping Telnet negotiation.
-Supports monitoring sessions through a separate WebSocket endpoint.
+Supports monitoring sessions through a separate endpoint.
 """
 import asyncio
 import logging
 import uuid
 from typing import Type, Optional, List
+from urllib.parse import urlparse
 
 import websockets
 from websockets.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
-
-from urllib.parse import urlparse
 
 from chuk_protocol_server.handlers.base_handler import BaseHandler
 from chuk_protocol_server.servers.base_ws_server import BaseWebSocketServer
@@ -57,7 +56,6 @@ class PlainWebSocketServer(BaseWebSocketServer):
             enable_monitoring=enable_monitoring,
             monitor_path=monitor_path
         )
-        # If path is None, we skip path-check altogether
         self.path = path
         self.transport = "websocket"
 
@@ -82,28 +80,31 @@ class PlainWebSocketServer(BaseWebSocketServer):
             await websocket.close(code=1008, reason="Server at capacity")
             return
             
-        # If self.path is not None, enforce that the requested path starts with the fixed prefix.
-        if self.path is not None:
-            try:
-                raw_path = websocket.request.path
-            except AttributeError:
-                logger.error("Plain WS: websocket.request.path not available")
-                await websocket.close(code=1011, reason="Internal server error")
-                return
+        # Capture the original path immediately.
+        try:
+            raw_path = websocket.request.path
+            setattr(websocket, '_original_path', raw_path)
+            logger.debug(f"Captured original path: {raw_path}")
+        except AttributeError:
+            logger.error("Plain WS: websocket.request.path not available")
+            await websocket.close(code=1011, reason="Internal server error")
+            return
 
+        # If a fixed path is configured, validate it.
+        if self.path is not None:
             parsed_path = urlparse(raw_path)
             actual_path = parsed_path.path or "/"
             expected_path = self.path if self.path.startswith("/") else f"/{self.path}"
             logger.debug(f"Plain WS: raw_path='{raw_path}', actual_path='{actual_path}', expected prefix='{expected_path}'")
             if not actual_path.startswith(expected_path):
                 logger.warning(f"Plain WS: Rejected connection: path '{raw_path}' does not start with expected prefix '{expected_path}'")
+                # Updated error message to match test expectation.
                 await websocket.close(code=1003, reason=f"Invalid path {raw_path}")
                 return
             # Save the full path for later use by the handler.
             websocket.full_path = raw_path
         else:
             logger.debug("Plain WS: path is None => accepting any path")
-
 
         # Optional CORS check
         try:

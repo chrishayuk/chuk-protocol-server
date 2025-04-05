@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuk-protocol-server"
-version = "0.1.8"
+version = "0.1.9"
 description = "A production ready protocol library for tcp, websocket and telnet servers"
 readme = "README.md"
 authors = [
