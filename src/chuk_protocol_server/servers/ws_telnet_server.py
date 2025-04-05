@@ -12,18 +12,17 @@ import logging
 import uuid
 from typing import Type, List, Optional
 
-# websockets
 import websockets
 from websockets.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 
-# imports
+from urllib.parse import urlparse  # <--- for ignoring query parts
+
 from chuk_protocol_server.handlers.base_handler import BaseHandler
 from chuk_protocol_server.transports.websocket.ws_adapter import WebSocketAdapter
 from chuk_protocol_server.transports.websocket.ws_monitorable_adapter import MonitorableWebSocketAdapter
 from chuk_protocol_server.servers.base_ws_server import BaseWebSocketServer
 
-# logger
 logger = logging.getLogger('chuk-protocol-server')
 
 class WSTelnetServer(BaseWebSocketServer):
@@ -100,7 +99,7 @@ class WSTelnetServer(BaseWebSocketServer):
             await websocket.close(code=1008, reason="Server at capacity")
             return
             
-        # Validate the WebSocket path.
+        # Validate the WebSocket path (ignore query portion)
         try:
             raw_path = websocket.request.path
         except AttributeError:
@@ -108,14 +107,18 @@ class WSTelnetServer(BaseWebSocketServer):
             await websocket.close(code=1011, reason="Internal server error")
             return
 
+        # Parse out any query params so we only compare the path portion
+        parsed_path = urlparse(raw_path)
+        actual_path = parsed_path.path
         expected_path = self.path if self.path.startswith("/") else f"/{self.path}"
-        logger.debug(f"WS Telnet: Received path: '{raw_path}', expected: '{expected_path}'")
-        if raw_path != expected_path:
+
+        logger.debug(f"WS Telnet: Received path='{raw_path}', actual_path='{actual_path}', expected='{expected_path}'")
+        if actual_path != expected_path:
             logger.warning(f"WS Telnet: Rejected connection to invalid path: '{raw_path}'")
             await websocket.close(code=1003, reason=f"Endpoint {raw_path} not found")
             return
 
-        # Optional CORS check.
+        # Optional CORS check
         try:
             headers = getattr(websocket, "request_headers", {})
             origin = headers.get("Origin") or headers.get("origin") or headers.get("HTTP_ORIGIN", "")
@@ -128,24 +131,18 @@ class WSTelnetServer(BaseWebSocketServer):
             await websocket.close(code=1011, reason="Internal server error")
             return
 
-        # Create appropriate adapter (monitorable if monitoring is enabled)
+        # Create the adapter (monitorable if monitoring is enabled)
         if self.enable_monitoring and self.session_monitor:
-            # Import the interceptor here to avoid circular imports
             from chuk_protocol_server.transports.websocket.ws_interceptor import WebSocketInterceptor
             
-            # Generate session ID
             session_id = str(uuid.uuid4())
-            
-            # Create interceptor for protocol-level monitoring
             interceptor = WebSocketInterceptor(
                 websocket=websocket,
                 session_id=session_id,
                 monitor=self.session_monitor
             )
-            
-            # Create the adapter with the interceptor
             adapter = MonitorableWebSocketAdapter(interceptor, self.handler_class)
-            adapter.session_id = session_id  # Use the same session ID
+            adapter.session_id = session_id
             adapter.monitor = self.session_monitor
             adapter.is_monitored = True
             
@@ -154,7 +151,7 @@ class WSTelnetServer(BaseWebSocketServer):
             adapter = WebSocketAdapter(websocket, self.handler_class)
             
         adapter.server = self
-        # In ws_telnet mode, do NOT set mode to 'simple'; let Telnet negotiation proceed.
+        # In ws_telnet mode, do not set mode="simple"; let Telnet negotiation proceed
         adapter.mode = "telnet"
         
         # Pass welcome message if configured
@@ -163,7 +160,7 @@ class WSTelnetServer(BaseWebSocketServer):
             
         self.active_connections.add(adapter)
         try:
-            # If connection_timeout is set, create a timeout wrapper
+            # If connection_timeout is set, wrap in asyncio.wait_for
             if self.connection_timeout:
                 try:
                     await asyncio.wait_for(adapter.handle_client(), timeout=self.connection_timeout)
@@ -172,11 +169,9 @@ class WSTelnetServer(BaseWebSocketServer):
             else:
                 await adapter.handle_client()
                 
-            # Check if the session was ended by the handler (e.g., quit command)
+            # Check if session was ended by the handler
             if hasattr(adapter.handler, 'session_ended') and adapter.handler.session_ended:
-                # The session was explicitly ended by the handler
                 logger.debug(f"WS Telnet: Session ended for {adapter.addr}")
-                # Ensure the WebSocket is properly closed
                 if not getattr(websocket, 'closed', False):
                     await websocket.close(1000, "Session ended")
                     

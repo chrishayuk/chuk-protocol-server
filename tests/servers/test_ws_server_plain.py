@@ -4,6 +4,8 @@
 import asyncio
 import pytest
 import uuid
+from unittest.mock import MagicMock, AsyncMock
+from websockets.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 from chuk_protocol_server.servers.ws_server_plain import PlainWebSocketServer
 
@@ -229,3 +231,105 @@ async def test_missing_request_path(plain_ws_server):
     await plain_ws_server._connection_handler(dummy_ws)
     assert dummy_ws.close_called
     assert dummy_ws.close_code == 1011
+
+@pytest.mark.asyncio
+async def test_ws_plain_accept_with_query():
+    """
+    Test that PlainWebSocketServer accepts a connection when
+    the path portion matches self.path, ignoring query parameters.
+    Example: /ws?target=...
+    """
+    server = PlainWebSocketServer(
+        host='localhost',
+        port=8025,
+        handler_class=None,  # Not needed for this path test
+        path='/ws'
+    )
+
+    # Mock a websocket with a path that includes a query
+    mock_websocket = MagicMock(spec=WebSocketServerProtocol)
+    # The path includes a query: /ws?target=example.com:123
+    mock_websocket.request.path = '/ws?target=example.com%3A123'
+    mock_websocket.remote_address = ('127.0.0.1', 12345)
+    mock_websocket.close = AsyncMock()
+
+    # Also mock request_headers
+    mock_websocket.request_headers = {}
+
+    # No max_connections limit
+    server.max_connections = None
+
+    # Call the internal _connection_handler
+    await server._connection_handler(mock_websocket)
+
+    # Expect the server did NOT close the websocket due to invalid path
+    # So the close call should not have been invoked
+    mock_websocket.close.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ws_plain_accept_with_query():
+    """
+    Test that PlainWebSocketServer accepts a connection when
+    the path portion matches self.path, ignoring query parameters.
+    Example: /ws?target=...
+    """
+    server = PlainWebSocketServer(
+        host='localhost',
+        port=8025,
+        handler_class=None,  # Not needed for this path test
+        path='/ws'
+    )
+
+    # Mock a websocket
+    mock_websocket = MagicMock(spec=WebSocketServerProtocol)
+    
+    # Create the `.request` mock
+    mock_websocket.request = MagicMock()
+    # Now set the path to include a query
+    mock_websocket.request.path = '/ws?target=example.com%3A123'
+    
+    # The rest of the attributes
+    mock_websocket.remote_address = ('127.0.0.1', 12345)
+    mock_websocket.close = AsyncMock()
+    mock_websocket.request_headers = {}
+
+    # No max_connections limit
+    server.max_connections = None
+
+    # Call the internal _connection_handler
+    await server._connection_handler(mock_websocket)
+
+    # The server should NOT close the websocket for invalid path
+    mock_websocket.close.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ws_plain_reject_wrong_path():
+    """
+    Test that PlainWebSocketServer rejects a connection if the path
+    portion doesn't match, ignoring query parameters.
+    Example: /invalid?target=...
+    """
+    server = PlainWebSocketServer(
+        host='localhost',
+        port=8025,
+        handler_class=None,
+        path='/ws'
+    )
+
+    mock_websocket = MagicMock(spec=WebSocketServerProtocol)
+    mock_websocket.request = MagicMock()
+    mock_websocket.request.path = '/invalid?target=example.com'
+    
+    mock_websocket.remote_address = ('127.0.0.1', 54321)
+    mock_websocket.close = AsyncMock()
+    mock_websocket.request_headers = {}
+
+    await server._connection_handler(mock_websocket)
+
+    # Expect the server to close the connection with code=1003
+    mock_websocket.close.assert_awaited_once()
+    reason_args = mock_websocket.close.await_args[1]
+    assert reason_args.get('code') == 1003
+    assert 'Invalid path' in reason_args.get('reason', '')

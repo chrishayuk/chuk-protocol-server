@@ -11,18 +11,17 @@ import logging
 import uuid
 from typing import Type, Optional, List
 
-# websockets
 import websockets
 from websockets.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 
-# imports
+from urllib.parse import urlparse  # <--- for ignoring query parts
+
 from chuk_protocol_server.handlers.base_handler import BaseHandler
 from chuk_protocol_server.servers.base_ws_server import BaseWebSocketServer
 from chuk_protocol_server.transports.websocket.ws_adapter import WebSocketAdapter
 from chuk_protocol_server.transports.websocket.ws_monitorable_adapter import MonitorableWebSocketAdapter
 
-# logger
 logger = logging.getLogger('chuk-protocol-server')
 
 class PlainWebSocketServer(BaseWebSocketServer):
@@ -82,7 +81,7 @@ class PlainWebSocketServer(BaseWebSocketServer):
             await websocket.close(code=1008, reason="Server at capacity")
             return
             
-        # Validate request path
+        # Validate request path (ignore query portion)
         try:
             raw_path = websocket.request.path
         except AttributeError:
@@ -90,9 +89,11 @@ class PlainWebSocketServer(BaseWebSocketServer):
             await websocket.close(code=1011, reason="Internal server error")
             return
 
+        parsed_path = urlparse(raw_path)
+        actual_path = parsed_path.path or "/"
         expected_path = self.path if self.path.startswith("/") else f"/{self.path}"
-        logger.debug(f"Plain WS: path='{raw_path}', expected='{expected_path}'")
-        if raw_path != expected_path:
+        logger.debug(f"Plain WS: raw_path='{raw_path}', actual_path='{actual_path}', expected='{expected_path}'")
+        if actual_path != expected_path:
             logger.warning(f"Plain WS: Rejected connection: invalid path '{raw_path}'")
             await websocket.close(code=1003, reason=f"Invalid path {raw_path}")
             return
@@ -110,24 +111,18 @@ class PlainWebSocketServer(BaseWebSocketServer):
             await websocket.close(code=1011, reason="CORS error")
             return
 
-        # Create appropriate adapter (monitorable if monitoring is enabled)
+        # Create adapter (monitorable if monitoring is enabled)
         if self.enable_monitoring and self.session_monitor:
-            # Import the interceptor here to avoid circular imports
             from chuk_protocol_server.transports.websocket.ws_interceptor import WebSocketInterceptor
             
-            # Generate session ID
             session_id = str(uuid.uuid4())
-            
-            # Create interceptor for protocol-level monitoring
             interceptor = WebSocketInterceptor(
                 websocket=websocket,
                 session_id=session_id,
                 monitor=self.session_monitor
             )
-            
-            # Create the adapter with the interceptor
             adapter = MonitorableWebSocketAdapter(interceptor, self.handler_class)
-            adapter.session_id = session_id  # Use the same session ID
+            adapter.session_id = session_id
             adapter.monitor = self.session_monitor
             adapter.is_monitored = True
             
@@ -136,7 +131,7 @@ class PlainWebSocketServer(BaseWebSocketServer):
             adapter = WebSocketAdapter(websocket, self.handler_class)
             
         adapter.server = self
-        adapter.mode = "simple"
+        adapter.mode = "simple"  # no Telnet negotiation in plain mode
         
         # Pass welcome message if configured
         if self.welcome_message:
@@ -144,7 +139,7 @@ class PlainWebSocketServer(BaseWebSocketServer):
             
         self.active_connections.add(adapter)
         try:
-            # If connection_timeout is set, create a timeout wrapper
+            # If connection_timeout is set, use asyncio.wait_for
             if self.connection_timeout:
                 try:
                     await asyncio.wait_for(adapter.handle_client(), timeout=self.connection_timeout)
@@ -153,11 +148,9 @@ class PlainWebSocketServer(BaseWebSocketServer):
             else:
                 await adapter.handle_client()
             
-            # Check if the session was ended by the handler (e.g., quit command)
+            # Check if session was ended by the handler
             if hasattr(adapter.handler, 'session_ended') and adapter.handler.session_ended:
-                # The session was explicitly ended by the handler
                 logger.debug(f"Plain WS: Session ended for {adapter.addr}")
-                # Ensure the WebSocket is properly closed
                 if not getattr(websocket, 'closed', False):
                     await websocket.close(1000, "Session ended")
                 

@@ -1,8 +1,10 @@
 import asyncio
 import pytest
 import uuid
-
+from unittest.mock import MagicMock, AsyncMock
 from websockets.exceptions import ConnectionClosed
+from websockets.server import WebSocketServerProtocol
+from chuk_protocol_server.servers.ws_telnet_server import WSTelnetServer
 from chuk_protocol_server.servers.ws_telnet_server import WSTelnetServer
 from chuk_protocol_server.transports.websocket.ws_adapter import WebSocketAdapter
 from chuk_protocol_server.transports.websocket.ws_monitorable_adapter import MonitorableWebSocketAdapter
@@ -189,3 +191,73 @@ async def test_missing_request_path(ws_telnet_server):
     await ws_telnet_server._connection_handler(dummy_ws)
     assert dummy_ws.closed is True
     assert dummy_ws.close_code == 1011
+
+@pytest.mark.asyncio
+async def test_ws_telnet_accept_with_query():
+    """
+    Test that WSTelnetServer accepts a connection when
+    the path portion matches self.path, ignoring query parameters.
+    Example: /ws_telnet?target=...
+    """
+    # Instantiate a WSTelnetServer with path='/ws_telnet'
+    server = WSTelnetServer(
+        host='localhost',
+        port=8026,
+        handler_class=None,  # Not needed for this path check
+        path='/ws_telnet'
+    )
+
+    # Mock a websocket
+    mock_websocket = MagicMock(spec=WebSocketServerProtocol)
+    # Create the .request mock to hold path
+    mock_websocket.request = MagicMock()
+    # Set the path to something that includes a query
+    mock_websocket.request.path = '/ws_telnet?target=myhost%3A123'
+
+    # Additional mock attributes
+    mock_websocket.remote_address = ('127.0.0.1', 11111)
+    mock_websocket.close = AsyncMock()
+    mock_websocket.request_headers = {}
+
+    # Disable max_connections limit
+    server.max_connections = None
+
+    # Call the server's _connection_handler
+    await server._connection_handler(mock_websocket)
+
+    # If path portion is '/ws_telnet', the server should accept -> no close call
+    mock_websocket.close.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_ws_telnet_reject_wrong_path():
+    """
+    Test that WSTelnetServer rejects a connection if
+    the path portion doesn't match, ignoring query parameters.
+    Example: /wrong?target=...
+    """
+    # Instantiate WSTelnetServer with path='/ws_telnet'
+    server = WSTelnetServer(
+        host='localhost',
+        port=8026,
+        handler_class=None,
+        path='/ws_telnet'
+    )
+
+    mock_websocket = MagicMock(spec=WebSocketServerProtocol)
+    # Create the .request mock to hold path
+    mock_websocket.request = MagicMock()
+    # The path portion is /wrong, not /ws_telnet
+    mock_websocket.request.path = '/wrong?target=stuff'
+
+    mock_websocket.remote_address = ('127.0.0.1', 22222)
+    mock_websocket.close = AsyncMock()
+    mock_websocket.request_headers = {}
+
+    # Call the server's _connection_handler
+    await server._connection_handler(mock_websocket)
+
+    # Expect the server to reject with code=1003 (invalid path)
+    mock_websocket.close.assert_awaited_once()
+    close_args = mock_websocket.close.await_args[1]
+    assert close_args.get('code') == 1003
+    assert 'Endpoint /wrong?target=stuff not found' in close_args.get('reason', '')
