@@ -1,5 +1,3 @@
-# Makefile for chuk-protocol-server
-
 .PHONY: clean test run build publish
 
 # Remove Python bytecode, __pycache__ directories, and build artifacts.
@@ -22,7 +20,10 @@ build:
 	@echo "Build complete. Distributions are in the 'dist' folder."
 
 # Publish the package to PyPI using twine.
+# This target uploads only the most recent artifact in the 'dist' folder.
 publish: build
 	@echo "Publishing package..."
-	twine upload dist/*
+	@last_build=$$(ls -t dist/* | head -n 1); \
+	echo "Uploading $$last_build"; \
+	twine upload $$last_build
 	@echo "Publish complete."

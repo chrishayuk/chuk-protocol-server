@@ -82,9 +82,8 @@ class PlainWebSocketServer(BaseWebSocketServer):
             await websocket.close(code=1008, reason="Server at capacity")
             return
             
-        # If self.path is None, skip path checking entirely
+        # If self.path is not None, enforce that the requested path starts with the fixed prefix.
         if self.path is not None:
-            # Validate request path (ignore query portion)
             try:
                 raw_path = websocket.request.path
             except AttributeError:
@@ -95,14 +94,16 @@ class PlainWebSocketServer(BaseWebSocketServer):
             parsed_path = urlparse(raw_path)
             actual_path = parsed_path.path or "/"
             expected_path = self.path if self.path.startswith("/") else f"/{self.path}"
-            logger.debug(f"Plain WS: raw_path='{raw_path}', actual_path='{actual_path}', expected='{expected_path}'")
-            if actual_path != expected_path:
-                logger.warning(f"Plain WS: Rejected connection: invalid path '{raw_path}'")
+            logger.debug(f"Plain WS: raw_path='{raw_path}', actual_path='{actual_path}', expected prefix='{expected_path}'")
+            if not actual_path.startswith(expected_path):
+                logger.warning(f"Plain WS: Rejected connection: path '{raw_path}' does not start with expected prefix '{expected_path}'")
                 await websocket.close(code=1003, reason=f"Invalid path {raw_path}")
                 return
+            # Save the full path for later use by the handler.
+            websocket.full_path = raw_path
         else:
-            # path=None => We do NOT reject based on path
             logger.debug("Plain WS: path is None => accepting any path")
+
 
         # Optional CORS check
         try:
