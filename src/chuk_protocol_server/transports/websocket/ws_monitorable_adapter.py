@@ -17,11 +17,8 @@ from websockets.server import WebSocketServerProtocol
 from chuk_protocol_server.handlers.base_handler import BaseHandler
 from chuk_protocol_server.transports.websocket.ws_adapter import WebSocketAdapter
 from chuk_protocol_server.transports.websocket.ws_writer import WebSocketWriter
-
-# Create a monitorable reader instead of the standard one
 from chuk_protocol_server.transports.websocket.ws_monitorable_reader import MonitorableWebSocketReader
 
-# logger
 logger = logging.getLogger('chuk-protocol-server')
 
 
@@ -41,26 +38,28 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
             websocket: The WebSocket connection
             handler_class: The handler class to use
         """
+        # Instead of calling super().__init__(...), we replicate the logic
+        # but use a MonitorableWebSocketReader for monitoring.
         self.websocket = websocket
         self.reader = MonitorableWebSocketReader(websocket)
         self.writer = WebSocketWriter(websocket)
         self.handler_class = handler_class
         self.handler = None
         self.addr = websocket.remote_address
-        
-        # Default to telnet mode (can be changed later)
+
+        # Default to telnet mode (can be changed later).
         self.mode = "telnet"
-        
+
         # Monitoring setup
         self.session_id = str(uuid.uuid4())
         self.monitor = None  # Will be set by the server
         self.is_monitored = False
         
-        # Pass monitoring info to the reader
+        # Pass session_id and (later) monitor to the reader
         if hasattr(self.reader, 'session_id'):
             self.reader.session_id = self.session_id
-        
-        # Server reference (will be set later)
+
+        # Server reference (will be set later via `adapter.server = ...`)
         self.server = None
         
         # Custom welcome message that can be passed from the server
@@ -79,38 +78,43 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
             if hasattr(self.reader, 'monitor'):
                 self.reader.monitor = self.monitor
             
-            # Get client info
+            # Build a client info dict
             client_info = {
                 'remote_addr': self.websocket.remote_address,
                 'path': getattr(self.websocket.request, 'path', 'unknown'),
-                'user_agent': getattr(getattr(self.websocket, 'request_headers', {}), 'get', lambda x, y: 'unknown')('User-Agent', 'unknown')
+                'user_agent': getattr(
+                    getattr(self.websocket, 'request_headers', {}), 
+                    'get', 
+                    lambda x, y: 'unknown'
+                )('User-Agent', 'unknown')
             }
-            
-            # Register the session
             await self.monitor.register_session(self.session_id, client_info)
         
         try:
             # Create the handler
             self.handler = self.handler_class(self.reader, self.writer)
-            
+
             # If a server is set, also attach it to the handler
             if self.server:
                 self.handler.server = self.server
             
             # Set the handler's mode to the adapter's mode
             self.handler.mode = self.mode
-            
-            # Pass welcome message if available and the handler supports it
+
+            # **Important**: Assign the same websocket to the handler
+            self.handler.websocket = self.websocket
+
+            # Pass welcome message if available
             if self.welcome_message and hasattr(self.handler, 'welcome_message'):
                 self.handler.welcome_message = self.welcome_message
             
-            # Handle the client
+            # Now let the handler handle the client
             await self.handler.handle_client()
         finally:
             # Unregister the session if monitoring is enabled
             if self.monitor and self.is_monitored:
                 await self.monitor.unregister_session(self.session_id)
-    
+
     async def send_line(self, message: str) -> None:
         """
         Send a line of text to the client.
@@ -120,7 +124,6 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
         Args:
             message: The message to send
         """
-        # Broadcast the outgoing message if monitoring is enabled
         if self.monitor and self.is_monitored:
             logger.debug(f"Broadcasting server message: {repr(message)}")
             await self.monitor.broadcast_session_event(
@@ -129,7 +132,6 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
                 {'text': message}
             )
         
-        # Send to client
         if self.handler and hasattr(self.handler, 'send_line'):
             await self.handler.send_line(message)
         else:
@@ -138,12 +140,12 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
                 await self.writer.drain()
             except Exception as e:
                 logger.error(f"Error sending message to WebSocket client: {e}")
-                
+
     async def write(self, data: bytes) -> None:
         """
         Write data directly to the WebSocket.
         
-        This captures and broadcasts all raw writes to the client.
+        This captures and broadcasts all raw writes to the client if monitored.
         
         Args:
             data: The data to write
@@ -161,7 +163,7 @@ class MonitorableWebSocketAdapter(WebSocketAdapter):
                 logger.error(f"Error broadcasting raw write data: {e}")
         
         await self.writer.write(data)
-    
+
     def __getattr__(self, name):
         """
         Forward attribute lookups to the underlying WebSocket.
