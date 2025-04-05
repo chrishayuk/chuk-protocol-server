@@ -184,7 +184,7 @@ class TelnetHandler(LineHandler):
         i += 1
         if i < len(raw_data):
             option = raw_data[i]
-            from telnet_server.protocols.telnet.negotiation import process_negotiation
+            from chuk_protocol_server.protocols.telnet.negotiation import process_negotiation
             await process_negotiation(self.reader, self.writer, cmd, option, self.options)
             if option == OPT_LINEMODE:
                 self.line_mode = (

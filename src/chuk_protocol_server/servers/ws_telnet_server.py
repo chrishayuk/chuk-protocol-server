@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# telnet_server/servers/ws_telnet_server.py
+# chuk_protocol_server/servers/ws_telnet_server.py
 """
 WebSocket Telnet Server with Session Monitoring
 

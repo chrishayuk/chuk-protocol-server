@@ -1,0 +1,59 @@
+# config/guess_who_server.yaml
+# Guess Who Server Configuration - Multi-Transport
+
+servers:
+  telnet:
+    host: "0.0.0.0"
+    port: 8023
+    transport: "telnet"
+    handler_class: "chuk_protocol_server.sample_servers.guess_who_server.server:GuessWhoHandler"
+    max_connections: 50
+    connection_timeout: 600  # Longer timeout for game sessions
+    welcome_message: "Welcome to Guess Who (Telnet)! Can you guess the mystery person?"
+
+  tcp:
+    host: "0.0.0.0"
+    port: 8024
+    transport: "tcp"
+    handler_class: "chuk_protocol_server.sample_servers.guess_who_server.server:GuessWhoHandler"
+    max_connections: 50
+    connection_timeout: 600
+    welcome_message: "Welcome to Guess Who (TCP)! Can you guess the mystery person?"
+
+  websocket:
+    host: "0.0.0.0"
+    port: 8025
+    transport: "websocket"
+    ws_path: "/ws"
+    handler_class: "chuk_protocol_server.sample_servers.guess_who_server.server:GuessWhoHandler"
+    use_ssl: false
+    allow_origins:
+      - "*"
+    ping_interval: 30
+    ping_timeout: 10
+    max_connections: 50
+    connection_timeout: 600
+    welcome_message: "Welcome to Guess Who (WebSocket)! Can you guess the mystery person?"
+    # Monitoring configuration
+    enable_monitoring: true
+    monitor_path: "/monitor"
+
+  ws_telnet:
+    host: "0.0.0.0"
+    port: 8026
+    transport: "ws_telnet"         # WebSocket over Telnet: performs Telnet negotiation over the WS transport
+    ws_path: "/ws"
+    handler_class: "chuk_protocol_server.sample_servers.guess_who_server.server:GuessWhoHandler"
+    use_ssl: false
+    ssl_cert: ""
+    ssl_key: ""
+    allow_origins:
+      - "*"
+    ping_interval: 30
+    ping_timeout: 10
+    max_connections: 100
+    connection_timeout: 300
+    welcome_message: "Welcome to Guess Who (WebSocket)! Can you guess the mystery person?"
+    # Monitoring configuration
+    enable_monitoring: true
+    monitor_path: "/monitor"
