@@ -55,7 +55,7 @@ class DummyTelnetHandler(TelnetHandler):
         self.events = []  # record lifecycle events
         self.running = True  # used in loops
         self.addr = "dummy-client"
-        # Set a known welcome message.
+        # By default, set a known welcome message.
         self.welcome_message = "Welcome to Telnet Mode"
 
     async def on_connect(self):
@@ -90,7 +90,7 @@ def dummy_connection():
     return handler, reader, writer
 
 @pytest.mark.asyncio
-async def test_send_welcome(dummy_connection):
+async def test_send_welcome_default(dummy_connection):
     """
     Test that send_welcome sends the custom welcome message and a prompt.
     """
@@ -101,6 +101,21 @@ async def test_send_welcome(dummy_connection):
     assert b"Welcome to Telnet Mode" in output
     # The prompt is sent via show_prompt() in send_welcome().
     assert b"> " in output
+
+@pytest.mark.asyncio
+async def test_send_welcome_transparent(dummy_connection):
+    """
+    Test that if the welcome message is overridden to an empty string,
+    only the prompt is sent (transparent mode).
+    """
+    handler, _, writer = dummy_connection
+    handler.welcome_message = ""  # Override to be transparent.
+    writer.data.clear()
+    await handler.send_welcome()
+    output = b"".join(writer.data)
+    # In transparent mode, no welcome text (apart from prompt) should appear.
+    # We expect that the output only contains the prompt ("> ").
+    assert output == b"> "
 
 @pytest.mark.asyncio
 async def test_simple_mode_echo_and_exit():
@@ -174,7 +189,7 @@ async def test_mixed_mode_read():
     handler.line_mode = False
 
     result = await handler._read_mixed_mode(timeout=1)
-    # The implementation currently preserves the CR LF sequence.
+    # The implementation preserves the CR LF sequence.
     expected = "A\r\nB"
     assert result == expected
 

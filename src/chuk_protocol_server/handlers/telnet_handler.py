@@ -28,7 +28,7 @@ from chuk_protocol_server.protocols.telnet.options import OptionManager
 from chuk_protocol_server.protocols.telnet.terminal import TerminalInfo
 from chuk_protocol_server.utils.terminal_codes import CR, LF
 
-# logger
+# logger
 logger = logging.getLogger('chuk-protocol-server')
 
 class TelnetHandler(LineHandler):
@@ -37,13 +37,13 @@ class TelnetHandler(LineHandler):
     
     If self.mode == "simple", it reads lines directly and echoes them
     without sending or parsing Telnet negotiation sequences. Otherwise,
-    it does normal Telnet negotiation and can handle line or character mode.
+    it performs normal Telnet negotiation and can handle both line and character mode.
     """
     
     def __init__(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         super().__init__(reader, writer)
 
-        self.line_mode = False  # If Telnet negotiation sets linemode
+        self.line_mode = False  # Will be set during negotiation if applicable
         self.options = OptionManager()
         self.options.initialize_options([
             OPT_ECHO, OPT_SGA, OPT_TERMINAL, OPT_NAWS, OPT_LINEMODE
@@ -53,13 +53,15 @@ class TelnetHandler(LineHandler):
         # Buffer for partial IAC commands
         self.iac_buffer = bytearray()
         
-        # Custom welcome message that can be set by server configuration
-        self.welcome_message = None
-    
+        # Custom welcome message that can be set by server configuration.
+        # If left as None, a default message is sent.
+        # If set to an empty string (""), no welcome text is sent.
+        self.welcome_message: Optional[str] = None
+
     async def handle_client(self) -> None:
         """
         Main entry point. Checks if self.mode == "simple". If so, uses a purely
-        line-based loop with no negotiation. Otherwise, does full Telnet logic.
+        line-based loop with no Telnet negotiation. Otherwise, does full Telnet logic.
         """
         try:
             await self.on_connect()
@@ -102,7 +104,7 @@ class TelnetHandler(LineHandler):
     async def _telnet_loop(self) -> None:
         """
         Normal Telnet logic. If line_mode is True, read lines with
-        _read_line_with_telnet(). Otherwise, read chars with _read_mixed_mode().
+        _read_line_with_telnet(). Otherwise, read characters with _read_mixed_mode().
         """
         while self.running:
             try:
@@ -139,7 +141,7 @@ class TelnetHandler(LineHandler):
     async def _read_mixed_mode(self, timeout: float = 300) -> Optional[str]:
         """
         Read both Telnet commands and data interleaved. This is used if
-        line_mode is False and we're in normal Telnet mode (not 'simple').
+        line_mode is False and we're in normal Telnet mode.
         """
         try:
             raw_data = await asyncio.wait_for(self.reader.read(1024), timeout=timeout)
@@ -175,8 +177,7 @@ class TelnetHandler(LineHandler):
         elif cmd == SB:
             i = self._process_subneg(raw_data, i)
         elif cmd == IAC:
-            # IAC IAC means literal 255
-            # We'll just skip it here and add a 255 to the processed chars if you want
+            # IAC IAC means literal 255.
             pass
         return i + 1
 
@@ -229,13 +230,12 @@ class TelnetHandler(LineHandler):
             out += "\r"
             return i + 1, out
         
-        # Add printable or recognized control chars
         if (32 <= byte <= 126) or byte in (8, 10, 13, 3, 127):
             out += chr(byte)
         return i + 1, out
 
     def _process_subnegotiation(self, data: bytearray) -> None:
-        """Handle subneg data for TERMINAL-TYPE, NAWS, etc."""
+        """Handle subnegotiation data for TERMINAL-TYPE, NAWS, etc."""
         logger.debug(f"Processing subnegotiation data: {list(data)}")
         if not data:
             return
@@ -248,7 +248,7 @@ class TelnetHandler(LineHandler):
 
     async def _read_line_with_telnet(self, timeout: float = 300) -> Optional[str]:
         """
-        In line mode, read a line but skip Telnet sequences. 
+        In line mode, read a line but skip Telnet sequences.
         """
         try:
             data = await asyncio.wait_for(self.reader.readline(), timeout=timeout)
@@ -260,11 +260,9 @@ class TelnetHandler(LineHandler):
                 if data[i] == IAC:
                     i += 1
                     if i < len(data):
-                        # Could handle DO, DONT, etc. or skip them
                         if data[i] == IAC:  # literal 255
                             line_bytes.append(IAC)
                         else:
-                            # skip option byte
                             i += 1
                     i += 1
                     continue
@@ -282,29 +280,25 @@ class TelnetHandler(LineHandler):
         except Exception as e:
             logger.error(f"Error in _read_line_with_telnet: {e}")
             return None
-    
+
     async def send_welcome(self) -> None:
         """
         Send a welcome message to the client.
         
-        Uses the custom welcome_message if set, otherwise sends a default message.
+        If self.welcome_message is set and non-empty, that message is sent.
+        Otherwise, no welcome text is sent.
+        A prompt is always sent after the welcome message.
         """
         if self.welcome_message:
             await self.send_line(self.welcome_message)
-        else:
-            await self.send_line("Welcome! This server can handle line or character mode.")
-        
         await self.show_prompt()
 
     async def process_line(self, line: str) -> bool:
         """
         Process a complete line of input.
         
-        Args:
-            line: The line to process
-            
-        Returns:
-            True to continue processing, False to terminate the connection
+        By default, this method echoes the input back to the client.
+        Subclasses can override this method to change the behavior.
         """
         logger.debug(f"process_line => {line!r}")
         if line.lower() in ['quit', 'exit', 'q']:
