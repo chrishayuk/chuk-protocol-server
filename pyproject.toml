@@ -4,10 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuk-protocol-server"
-version = "0.1.1"
-description = "Add your description here"
+version = "0.1.2"
+description = "A production ready protocol library for tcp, websocket and telnet servers"
 readme = "README.md"
+authors = [
+    {name = "Chris Hay", email = "your.email@example.com"},
+]
+license = {text = "MIT"}
 requires-python = ">=3.11"
+keywords = ["tcp", "telnet", "websockets"]
 dependencies = [
     "asyncio>=3.4.3",
     "pyyaml>=6.0.2",
@@ -17,13 +22,36 @@ dependencies = [
 [tool.setuptools]
 package-dir = { "" = "src" }
 
+[tool.setuptools.packages.find]
+# Use find-packages with correct syntax
+where = ["."]
+include = ["chuk_protocol_server*"]
+
 [dependency-groups]
 dev = [
     "pytest-asyncio>=0.26.0",
     "pytest>=8.3.5",
 ]
 
+[project.urls]
+Homepage = "https://github.com/chrishayuk/chuk-protocol-server"
+"Bug Tracker" = "https://github.com/chrishayuk/chuk-protocol-server/issues"
+Documentation = "https://github.com/chrishayuk/chuk-protocol-server#readme"
+
 [project.scripts]
 server-launcher = "chuk_protocol_server.server_launcher:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+
+[tool.black]
+line-length = 88
+target-version = ["py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
 
 
