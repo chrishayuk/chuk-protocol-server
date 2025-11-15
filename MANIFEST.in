@@ -1,0 +1,10 @@
+# Include all YAML configuration files
+recursive-include src/chuk_protocol_server *.yaml
+recursive-include src/chuk_protocol_server *.yml
+
+# Include README and license
+include README.md
+include LICENSE
+
+# Include sample server configs and resources
+recursive-include src/chuk_protocol_server/sample_servers *

@@ -6,6 +6,8 @@ A modern Python framework for building server applications that work across mult
 
 - **Multiple Transport Protocols**: Run your server on Telnet, TCP, and WebSocket simultaneously
 - **Unified Handler Interface**: Write your application logic once, deploy everywhere
+- **Easy CLI Tools**: Launch servers with simple commands like `guess-who-server` or `sample-server echo_server`
+- **Sample Servers Included**: Get started immediately with Echo and Guess Who game servers
 - **Configurable**: YAML-based configuration with transport-specific options
 - **Graceful Shutdown**: Proper connection handling and clean termination
 - **Protocol Detection**: Automatic Telnet negotiation detection with fallback
@@ -15,6 +17,7 @@ A modern Python framework for building server applications that work across mult
 - **Dual-Mode Operation**: Supports both line mode and character mode terminal handling
 - **Robust Error Handling**: Graceful handling of connection issues and unexpected client behavior
 - **Session Monitoring**: Optional monitoring of WebSocket sessions for debugging and analysis
+- **uvx Support**: Run without installation using `uvx chuk-protocol-server`
 
 ## Requirements
 
@@ -39,14 +42,124 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
+After installation, the following CLI commands will be available:
+- `chuk-protocol-server` - Main CLI dispatcher for all commands
+- `sample-server` - Generic launcher for sample servers and custom configs
+- `guess-who-server` - Quick launch for the Guess Who game server
+- `echo-server` - Quick launch for the Echo server
+- `server-launcher` - Low-level server launcher with advanced options
+
+**No installation needed?** Use `uvx` to run directly:
+```bash
+# Launch with the main dispatcher
+uvx chuk-protocol-server guess-who-server
+uvx chuk-protocol-server sample-server echo_server
+
+# Or use individual commands
+uvx --from chuk-protocol-server guess-who-server
+```
+
 ## Quick Start
+
+### Try the Sample Servers
+
+Get started immediately with our built-in sample servers:
+
+```bash
+# Launch the Guess Who game server
+uv run chuk-protocol-server guess-who-server
+
+# Launch the Echo server
+uv run chuk-protocol-server echo-server
+
+# Or use the generic launcher
+uv run chuk-protocol-server sample-server guess_who_server
+uv run chuk-protocol-server sample-server echo_server
+
+# List all available sample servers
+uv run chuk-protocol-server sample-server --list
+```
+
+**No installation needed?** Try with uvx:
+
+```bash
+uvx chuk-protocol-server guess-who-server
+uvx chuk-protocol-server echo-server
+```
+
+### Create Your Own Server
 
 1. Create a handler class that inherits from one of the base handlers
 2. Configure your server with a YAML file
-3. Launch your server using the server launcher
+3. Launch your server
 
 ```bash
-uv run server-launcher -c src/chuk_protocol_server/sample_servers/echo_server/config.yaml
+# Launch with a custom config
+uv run chuk-protocol-server sample-server -c path/to/your/config.yaml
+
+# Or use the low-level launcher
+uv run chuk-protocol-server server-launcher -c path/to/your/config.yaml
+```
+
+## CLI Commands
+
+The framework provides several CLI commands for launching servers:
+
+### `chuk-protocol-server` - Main CLI Dispatcher
+
+The main command that provides access to all functionality:
+
+```bash
+# Quick launch sample servers
+chuk-protocol-server guess-who-server
+chuk-protocol-server echo-server
+
+# Launch any sample server by name
+chuk-protocol-server sample-server echo_server
+chuk-protocol-server sample-server guess_who_server
+
+# Launch with custom config
+chuk-protocol-server sample-server -c /path/to/config.yaml
+
+# List available sample servers
+chuk-protocol-server sample-server --list
+
+# Low-level launcher
+chuk-protocol-server server-launcher -c config.yaml -vv
+```
+
+**Using with uvx** (run without installation):
+
+```bash
+# Run directly from PyPI - no installation needed!
+uvx chuk-protocol-server guess-who-server
+uvx chuk-protocol-server sample-server echo_server
+uvx chuk-protocol-server sample-server -c ./config.yaml
+```
+
+### Individual Commands
+
+You can also use individual commands directly:
+
+```bash
+# Quick shortcuts
+guess-who-server
+echo-server
+
+# Generic launcher
+sample-server echo_server
+sample-server -c /path/to/config.yaml
+sample-server --list
+
+# Low-level launcher
+server-launcher -c config/my_server.yaml -vv
+```
+
+**With uvx:**
+
+```bash
+uvx --from chuk-protocol-server guess-who-server
+uvx --from chuk-protocol-server echo-server
 ```
 
 ## Client Connections
@@ -236,14 +349,51 @@ This modular design allows for:
 
 ## Running the Server
 
-Launch your server with the server launcher module:
+### Quick Launch (Recommended)
+
+Use the main CLI dispatcher:
+
+```bash
+# Launch built-in sample servers
+uv run chuk-protocol-server guess-who-server
+uv run chuk-protocol-server echo-server
+
+# Launch by name
+uv run chuk-protocol-server sample-server guess_who_server
+
+# Launch your custom server
+uv run chuk-protocol-server sample-server -c config/my_server.yaml
+
+# With verbose logging
+uv run chuk-protocol-server server-launcher -c config/my_server.yaml -vv
+```
+
+Or use individual commands:
+
+```bash
+uv run guess-who-server
+uv run echo-server
+uv run sample-server echo_server
+uv run sample-server -c config/my_server.yaml
+```
+
+### Using uvx (No Installation Required)
+
+The easiest way to try it out:
+
+```bash
+# Run directly from PyPI - no installation needed!
+uvx chuk-protocol-server guess-who-server
+uvx chuk-protocol-server echo-server
+uvx chuk-protocol-server sample-server guess_who_server
+uvx chuk-protocol-server sample-server -c ./my_config.yaml
+```
+
+### Traditional Python Module Invocation
 
 ```bash
 # With a configuration file
 python -m chuk_protocol_server.server_launcher -c config/my_server.yaml
-
-# Direct handler specification
-python -m chuk_protocol_server.server_launcher my_package.handlers:MyHandler --port 8000
 
 # Verbose logging
 python -m chuk_protocol_server.server_launcher -c config/my_server.yaml -vv
@@ -359,6 +509,39 @@ monitor.send(JSON.stringify({
 1. Extend one of the base handler classes (BaseHandler, CharacterHandler, LineHandler, TelnetHandler)
 2. Implement your application logic
 3. Configure the server to use your handler
+
+### Adding Custom Sample Servers
+
+To add your own sample server to the framework:
+
+1. Create a directory under `src/chuk_protocol_server/sample_servers/`
+2. Add your handler implementation in `server.py`
+3. Create a `config.yaml` file with your server configuration
+4. The server will automatically be available via `sample-server <your_server_name>`
+
+Example structure:
+```
+src/chuk_protocol_server/sample_servers/
+└── my_game_server/
+    ├── __init__.py
+    ├── server.py          # Your handler class
+    └── config.yaml        # Server configuration
+```
+
+Optionally, create a convenience launcher:
+```python
+# src/chuk_protocol_server/my_game_launcher.py
+from chuk_protocol_server.sample_server_launcher import launch_sample_server
+
+def main():
+    launch_sample_server("my_game_server")
+```
+
+Then add it to `pyproject.toml`:
+```toml
+[project.scripts]
+my-game-server = "chuk_protocol_server.my_game_launcher:main"
+```
 
 ## Logging
 

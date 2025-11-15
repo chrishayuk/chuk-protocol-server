@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuk-protocol-server"
-version = "0.1.10"
+version = "0.2"
 description = "A production ready protocol library for tcp, websocket and telnet servers"
 readme = "README.md"
 authors = [
@@ -26,6 +26,10 @@ package-dir = { "" = "src" }
 where = ["src"]  # Change from "." to "src"
 include = ["chuk_protocol_server*"]
 
+[tool.setuptools.package-data]
+"chuk_protocol_server.sample_servers.guess_who_server" = ["*.yaml", "*.yml"]
+"chuk_protocol_server.sample_servers.echo_server" = ["*.yaml", "*.yml"]
+
 [dependency-groups]
 dev = [
     "pytest-asyncio>=0.26.0",
@@ -38,7 +42,11 @@ Homepage = "https://github.com/chrishayuk/chuk-protocol-server"
 Documentation = "https://github.com/chrishayuk/chuk-protocol-server#readme"
 
 [project.scripts]
+chuk-protocol-server = "chuk_protocol_server.cli:main"
 server-launcher = "chuk_protocol_server.server_launcher:main"
+sample-server = "chuk_protocol_server.sample_server_launcher:main"
+guess-who-server = "chuk_protocol_server.guess_who_launcher:main"
+echo-server = "chuk_protocol_server.echo_launcher:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
